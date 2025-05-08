@@ -6,6 +6,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('', views.home, name='home'),
     path('checkview/', views.checkview, name='checkview'),
-    path('getMessages/<str:room>/', views.getMessages, name = 'getMessages'),
     path('<str:room>/', views.room, name="room"),
+    path('send/', views.send, name="send"),
+    path('getMessages/<str:room>/', views.getMessages, name = 'getMessages'),
 ]
