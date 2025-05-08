@@ -1,6 +1,6 @@
 from django.shortcuts import render, redirect
 from .models import *
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 # Create your views here.
 
@@ -9,67 +9,52 @@ def home(request):
 
 def room(request, room):
     username = request.GET.get('username')
-    try:
-        room_details = Room.objects.get(name=room)
-    except Room.DoesNotExist:
-        return redirect('/')
-    
-    print(f"Room details: {room_details}")
-
+    room_details, created = Room.objects.get_or_create(name = room)
     return render(request, 'room.html', {
-        'username':username, 'room':room, "room_details":room_details
+        'username': username,
+        'room' : room,
+        'room_details': room_details
     })
 
 def checkview(request):
-    room = request.POST.get('room_name')
-    username = request.POST.get('username')
+    room = request.POST['room_name']
+    username = request.POST['username']
 
-    print("room:", room)
-    print("username:", username)
-
-    if not room or not username:
-        return redirect('/')
+    if Room.objects.filter(name = room).exists():
+        return redirect(f'/{room}/?username={username}')
+    else:
+        new_room = Room.objects.create(name= room)
+        new_room.save()
+        return redirect(f'/{room}/?username={username}')
     
-    Room.objects.get_or_create(name=room)
 
-    url = f'/{room}/?username={username}'
-    print('redirect debug:', url)
-    return redirect(url)
-    
-def getMessages(request, room):
-    try:
-        room_obj = Room.objects.get(name=room)
-    except Room.DoesNotExist:
-        return JsonResponse({"error": "Room not found"}, status=404)
-
-    messages = Message.objects.filter(room=room_obj).order_by('date')
-
-    message_list = []
-    for message in messages:
-        message_list.append({
-            'user': message.user,
-            'value': message.value,
-            'date': message.date
-        })
-    print(f"Messages for room {room}: {message_list}")
-    return JsonResponse({"messages": message_list})
-
-@csrf_exempt
 def send(request):
-    if request.method == 'POST':
-        username = request.POST.get('username')
-        room_id = request.POST.get('room_id')
-        message = request.POST.get('message')
+    message = request.POST['message']
+    username = request.POST['username']
+    room_id = request.POST['room_id']
 
-        try:
-            room = Room.objects.get(id=room_id)
-        except Room.DoesNotExist:
-            return JsonResponse({"error":"Room not found"}, status=404)
-
-        new_message = Message.objects.create(
-            value = message,
-            user = username,
-            room = room
+    new_message = Message.objects.create(
+        value = message, 
+        user = username, 
+        room = Room.objects.get(id=room_id)
         )
-        new_message.save()
-        return JsonResponse({'status':'Message envoyé avec succès'})
+    new_message.save()
+    return HttpResponse('Message envoyé avec succès')
+
+
+def getMessages(request, room):
+    
+    room_details = Room.objects.get(name=room)
+    messages = Message.objects.filter(room=room_details).order_by('date')
+    return JsonResponse(
+        {
+        "messages": [
+            {
+                "user": msg.user,
+                "value": msg.value,
+                "date": msg.date.strftime("%Y-%m-%d %H:%M:%S")
+            }
+            for msg in messages
+        ]
+    }
+    )
